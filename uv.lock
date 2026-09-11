@@ -1476,7 +1476,7 @@ wheels = [
 ]
 
 [[package]]
-name = "llm-ticket-triage"
+name = "llm-intent-classification"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
