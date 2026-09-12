@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from tqdm import tqdm
 
 from ollama import chat, ChatResponse
@@ -85,6 +85,9 @@ def main():
 
         correct = 0
 
+        # generation errors
+        invalid = 0
+
         for row in tqdm(dev_df.iterrows(), desc="Evaluating", total=SAMPLE_SIZE):
             item = row[-1]
 
@@ -104,14 +107,19 @@ def main():
                 think=False,
             )
 
-            if response.message.content:
-                # Use Pydantic to validate the response
-                res = Ticket.model_validate_json(response.message.content)
+            if response.message.content is not None:
+                try:
+                    # Use Pydantic to validate the response
+                    res = Ticket.model_validate_json(response.message.content)
+                except ValidationError as e:
+                    res = {"description": desc, "intent": "manual_review"}
+                    invalid += 1
 
-                if gt_intent == res.intent:
-                    correct += 1
+                finally:
+                    if res is not None and gt_intent == res.intent:
+                        correct += 1
 
-        print(f"\tCORRECT = {correct}\n")
+        print(f"\tCORRECT = {correct}\n, INVALID = {invalid}")
 
 
 if __name__ == "__main__":
