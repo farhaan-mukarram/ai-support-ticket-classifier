@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "datasets>=5.0.1",
+    "fastapi[standard]>=0.141.1",
     "jupyterlab>=4.6.3",
     "ollama>=0.6.2",
     "pydantic>=2.13.5",
@@ -29,3 +30,7 @@ torchvision = [
 
 [tool.uv.extra-build-dependencies]
 flash-attn = ["packaging", { requirement = "torch", match-runtime = true }]
+
+[tool.fastapi]
+entrypoint = "backend.main:app"
+
