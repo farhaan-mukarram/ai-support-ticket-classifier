@@ -1,85 +1,14 @@
-from enum import Enum
 import time
 
-from transformers import pipeline
 import numpy as np
-from tqdm import tqdm
+from ollama import ChatResponse, chat
 from pandas import DataFrame
-from typing import Literal
-from pydantic import BaseModel, ValidationError
-from ollama import chat, ChatResponse
-
+from pydantic import ValidationError
 from sklearn.metrics import classification_report
+from tqdm import tqdm
+from transformers import pipeline
 
-INTENTS_LIST = [
-    "cancel_order",
-    "change_order",
-    "change_shipping_address",
-    "check_cancellation_fee",
-    "check_invoice",
-    "check_payment_methods",
-    "check_refund_policy",
-    "complaint",
-    "contact_customer_service",
-    "contact_human_agent",
-    "create_account",
-    "delete_account",
-    "delivery_options",
-    "delivery_period",
-    "edit_account",
-    "get_invoice",
-    "get_refund",
-    "newsletter_subscription",
-    "payment_issue",
-    "place_order",
-    "recover_password",
-    "registration_problems",
-    "review",
-    "set_up_shipping_address",
-    "switch_account",
-    "track_order",
-    "track_refund",
-]
-
-
-# Define the schema for the response
-class Ticket(BaseModel):
-    description: str
-    # TODO: Find a cleaner way to do this
-    intent: Literal[
-        "cancel_order",
-        "change_order",
-        "change_shipping_address",
-        "check_cancellation_fee",
-        "check_invoice",
-        "check_payment_methods",
-        "check_refund_policy",
-        "complaint",
-        "contact_customer_service",
-        "contact_human_agent",
-        "create_account",
-        "delete_account",
-        "delivery_options",
-        "delivery_period",
-        "edit_account",
-        "get_invoice",
-        "get_refund",
-        "newsletter_subscription",
-        "payment_issue",
-        "place_order",
-        "recover_password",
-        "registration_problems",
-        "review",
-        "set_up_shipping_address",
-        "switch_account",
-        "track_order",
-        "track_refund",
-    ]
-
-
-class Model(Enum):
-    BART = "facebook/bart-large-mnli"
-    QWEN = "qwen3.5:0.8b"
+from constants import INTENTS_LIST, Ticket
 
 
 def benchmark_bart(df: DataFrame):
@@ -139,11 +68,11 @@ def benchmark_qwen(df: DataFrame):
         gt_intent: str = item["intent"]
 
         response: ChatResponse = chat(
-            model="qwen3.5:0.8b",
+            model="qwen3.5:2b",
             messages=[
                 {
                     "role": "user",
-                    "content": f"Classify the ticket into intent based on the description. Here is the list of allowed intents: {str(INTENTS_LIST)}. Here is the description to classify: {desc}. Return the description and most likely intent.",
+                    "content": f"Classify the ticket into intent based on the description. Here is the list of allowed intents: {INTENTS_LIST!s}. Here is the description to classify: {desc}. Return the description and most likely intent.",
                 }
             ],
             format=Ticket.model_json_schema(),  # Use Pydantic to generate the schema or format=schema
@@ -158,7 +87,7 @@ def benchmark_qwen(df: DataFrame):
                 y_true.append(gt_intent)
                 y_pred.append(res.intent)
 
-            except ValidationError as e:
+            except ValidationError:
                 res = {"description": desc, "intent": "manual_review"}
                 invalid += 1
 
@@ -170,7 +99,7 @@ def benchmark_qwen(df: DataFrame):
     elapsed = time_end - time_start
 
     report = classification_report(
-        y_true, y_pred, labels=INTENTS_LIST, output_dict=True
+        y_true, y_pred, target_names=INTENTS_LIST, output_dict=True
     )
 
     return report, elapsed
