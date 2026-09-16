@@ -14,7 +14,6 @@ dependencies = [
     "python-dotenv>=1.2.3",
     "scikit-learn>=1.7.2",
     "slack-sdk>=3.44.1",
-    "streamlit>=1.64.0",
     "torch>=2.11.0",
     "transformers>=5.17.0",
 ]
