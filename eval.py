@@ -1,9 +1,10 @@
+import json
+from pathlib import Path
+
 import pandas as pd
 from pandas import DataFrame
-from benchmarks import benchmark_bart, benchmark_qwen
 
-from pathlib import Path
-import json
+from benchmarks import benchmark_bart, benchmark_qwen
 
 SAMPLE_SIZE = 1000
 SEED = 42
@@ -18,16 +19,14 @@ def main(df: DataFrame):
 
     report, elapsed_time = benchmark_bart(df)
 
-    report["time"] = elapsed_time
-
     with open(f"{output_dir}/bart.json", "w") as fp:
+        report["time"] = elapsed_time
         json.dump(report, fp)
 
     report, elapsed_time = benchmark_qwen(df)
 
-    report["time"] = elapsed_time
-
     with open(f"{output_dir}/qwen.json", "w") as fp:
+        report["time"] = elapsed_time
         json.dump(report, fp)
 
 
