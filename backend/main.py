@@ -1,77 +1,44 @@
+import os
 from typing import Literal
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from ollama import ChatResponse, chat
 from pydantic import BaseModel, ValidationError
+from slack_sdk.webhook import WebhookClient
 
-INTENTS_LIST = [
-    "cancel_order",
-    "change_order",
-    "change_shipping_address",
-    "check_cancellation_fee",
-    "check_invoice",
-    "check_payment_methods",
-    "check_refund_policy",
-    "complaint",
-    "contact_customer_service",
-    "contact_human_agent",
-    "create_account",
-    "delete_account",
-    "delivery_options",
-    "delivery_period",
-    "edit_account",
-    "get_invoice",
-    "get_refund",
-    "newsletter_subscription",
-    "payment_issue",
-    "place_order",
-    "recover_password",
-    "registration_problems",
-    "review",
-    "set_up_shipping_address",
-    "switch_account",
-    "track_order",
-    "track_refund",
-]
+from constants import INTENTS_LIST, Ticket
 
+load_dotenv()
 
-# Define the schema for the response
-class Ticket(BaseModel):
-    description: str
-    # TODO: Find a cleaner way to do this
-    intent: Literal[
-        "cancel_order",
-        "change_order",
-        "change_shipping_address",
-        "check_cancellation_fee",
-        "check_invoice",
-        "check_payment_methods",
-        "check_refund_policy",
-        "complaint",
-        "contact_customer_service",
-        "contact_human_agent",
-        "create_account",
-        "delete_account",
-        "delivery_options",
-        "delivery_period",
-        "edit_account",
-        "get_invoice",
-        "get_refund",
-        "newsletter_subscription",
-        "payment_issue",
-        "place_order",
-        "recover_password",
-        "registration_problems",
-        "review",
-        "set_up_shipping_address",
-        "switch_account",
-        "track_order",
-        "track_refund",
-    ]
+url = os.environ.get("SLACK_WEBHOOK_URL")
+webhook = WebhookClient(url)
 
 
 class Item(BaseModel):
     description: str
+
+
+def send_slack_alert(description: str):
+    blocks = [
+        {
+            "type": "card",
+            "title": {
+                "type": "mrkdwn",
+                "text": "🚨 Action required 🚨.",
+                "verbatim": False,
+            },
+            "body": {
+                "type": "mrkdwn",
+                "text": f"Ticket flagged for human review. Ticket description: '{description}'",
+                "verbatim": False,
+            },
+        },
+    ]
+
+    webhook.send(
+        text=f"🚨 Action required 🚨. description: {description}", blocks=blocks
+    )
 
 
 app = FastAPI()
@@ -82,16 +49,16 @@ async def root():
     return {"message": "Bye World"}
 
 
-@app.post("/classify/")
+@app.post("/api/classify/")
 async def classify(item: Item) -> str | None:
     description = item.description
 
     response: ChatResponse = chat(
-        model="qwen3.5:0.8b",
+        model="qwen3.5:2b",
         messages=[
             {
                 "role": "user",
-                "content": f"Classify the ticket into intent based on the description. Here is the list of allowed intents: {INTENTS_LIST!s}. Here is the description to classify: {description}. Return the description and most likely intent.",
+                "content": f"Classify the ticket into intent based on the description. Here is the list of allowed intents: {INTENTS_LIST}. Here is the description to classify: {description}. Return the description and most likely intent.",
             }
         ],
         format=Ticket.model_json_schema(),  # Use Pydantic to generate the schema or format=schema
@@ -108,6 +75,12 @@ async def classify(item: Item) -> str | None:
 
         except ValidationError:
             res = {"description": description, "intent": "manual_review"}
+
+        print(res.intent)
+        # flag for human review and generate slack alert
+        match res.intent:
+            case "contact_human_agent" | "manual_review":
+                send_slack_alert(description)
 
         return res.intent
 

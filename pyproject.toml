@@ -8,9 +8,13 @@ dependencies = [
     "datasets>=5.0.1",
     "fastapi[standard]>=0.141.1",
     "jupyterlab>=4.6.3",
+    "matplotlib>=3.10.9",
     "ollama>=0.6.2",
     "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
     "scikit-learn>=1.7.2",
+    "slack-sdk>=3.44.1",
+    "streamlit>=1.64.0",
     "torch>=2.11.0",
     "transformers>=5.17.0",
 ]
