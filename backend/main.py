@@ -1,5 +1,4 @@
 import os
-from typing import Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -7,6 +6,7 @@ from ollama import ChatResponse, chat
 from pydantic import BaseModel, ValidationError
 from slack_sdk.webhook import WebhookClient
 
+from backend.database_utils import insert_into_table
 from constants import INTENTS_LIST, Ticket
 
 load_dotenv()
@@ -19,25 +19,26 @@ class Item(BaseModel):
     description: str
 
 
-def send_slack_alert(description: str):
+def send_slack_alert(ticket_id: int | str, description: str, intent: str):
     blocks = [
         {
             "type": "card",
             "title": {
                 "type": "mrkdwn",
-                "text": "🚨 Action required 🚨.",
+                "text": "🚨 Ticket flagged for human review 🚨.",
                 "verbatim": False,
             },
             "body": {
                 "type": "mrkdwn",
-                "text": f"Ticket flagged for human review. Ticket description: '{description}'",
+                "text": f"Ticket ID: '{ticket_id}', description: '{description}', intent: '{intent}'",
                 "verbatim": False,
             },
         },
     ]
 
     webhook.send(
-        text=f"🚨 Action required 🚨. description: {description}", blocks=blocks
+        text=f"🚨 Ticket flagged for human review 🚨. Ticket ID: '{ticket_id}', description: '{description}', intent: '{intent}'",
+        blocks=blocks,
     )
 
 
@@ -76,11 +77,13 @@ async def classify(item: Item) -> str | None:
         except ValidationError:
             res = {"description": description, "intent": "manual_review"}
 
-        print(res.intent)
+        # write results to db
+        ticket_id = insert_into_table(description=description, intent=res.intent)
+
         # flag for human review and generate slack alert
         match res.intent:
             case "contact_human_agent" | "manual_review":
-                send_slack_alert(description)
+                send_slack_alert(ticket_id, description, intent=res.intent)
 
         return res.intent
 
